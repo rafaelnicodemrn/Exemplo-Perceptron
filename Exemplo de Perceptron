@@ -9,7 +9,7 @@ class Perceptron:
     eta : float
       Taxa de aprendizado (entre 0.0 e 1.0).
     n_iter : int
-      Número de passagens sobre o conjunto de treinamento (épocas).
+      Número máximo de passagens sobre o conjunto de treinamento (épocas).
     random_state : int
       Semente para o gerador de números aleatórios para inicialização de pesos.
 
@@ -41,26 +41,36 @@ class Perceptron:
         self.w_ = rgen.normal(loc=0.0, scale=0.01, size=1 + X.shape[1])
         self.errors_ = []
 
-        for _ in range(self.n_iter):
+        for i in range(self.n_iter):
             errors = 0
             for xi, target in zip(X, y):
                 # Calcula a atualização dos pesos
                 # update = eta * (target - predição)
                 update = self.eta * (target - self.predict(xi))
-                
+
                 # Aplica a regra de atualização
                 self.w_[1:] += update * xi  # Atualiza pesos das features
                 self.w_[0] += update        # Atualiza o bias
-                
-                # Incrementa o contador de erros
+
+                # Incrementa o contador de erros se a atualização não for zero
                 errors += int(update != 0.0)
+
             self.errors_.append(errors)
+            # --- Parada Antecipada ---
+            # Se não houve erros nesta época, o modelo convergiu
+            if errors == 0:
+                print(f"Convergência alcançada na época {i+1}.")
+                return self
+
+        print(f"Máximo de épocas ({self.n_iter}) atingido sem convergência completa.")
         return self
 
     def net_input(self, X):
         """Calcula a entrada líquida (soma ponderada)"""
         # z = w · x + b
-        return np.dot(X, self.w_[1:]) + self.w_[0]
+        # Garante que X seja pelo menos 1D para np.dot funcionar com amostra única
+        X_proc = np.atleast_1d(X)
+        return np.dot(X_proc, self.w_[1:]) + self.w_[0]
 
     def predict(self, X):
         """Retorna o rótulo da classe (1 ou -1) após a função degrau"""
@@ -70,10 +80,22 @@ class Perceptron:
 X_and = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
 y_and = np.array([-1, -1, -1, 1]) # Rótulos -1 (Falso) e 1 (Verdadeiro)
 
-ppn = Perceptron(eta=0.1, n_iter=10)
+ppn = Perceptron(eta=0.1, n_iter=100) # Aumentei n_iter para garantir a parada antecipada
 ppn.fit(X_and, y_and)
 
 print("--- Teste do Perceptron (Porta Lógica AND) ---")
 print(f"Pesos finais: {ppn.w_}")
 print(f"Erros por época: {ppn.errors_}")
 print(f"Predições: {ppn.predict(X_and)}")
+
+# --- Exemplo de Uso (Problema XOR, não linearmente separável) ---
+# O Perceptron NÃO deve convergir aqui
+print("\n--- Teste do Perceptron (Porta Lógica XOR) ---")
+X_xor_perc = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+y_xor_perc = np.array([-1, 1, 1, -1]) # Rótulos -1 e 1 para XOR
+
+ppn_xor = Perceptron(eta=0.1, n_iter=100)
+ppn_xor.fit(X_xor_perc, y_xor_perc)
+print(f"Pesos finais (XOR): {ppn_xor.w_}")
+print(f"Erros por época (XOR): {ppn_xor.errors_}") # Espera-se que os erros não cheguem a zero
+print(f"Predições (XOR): {ppn_xor.predict(X_xor_perc)}")
